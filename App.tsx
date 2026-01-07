@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import FileUpload from './components/FileUpload';
 import AnalysisResultCard from './components/AnalysisResultCard';
-import { AnalyzedFile, AnalysisResult } from './types';
+import { AnalyzedFile, AnalysisResult, Priority } from './types';
 import { fileToBase64, generateId } from './services/fileHelpers';
 import { analyzePdfContent } from './services/geminiService';
+import { generateHtmlReport } from './services/htmlGenerator';
 
 const STORAGE_KEY = 'pdf_study_assistant_data';
 
@@ -58,6 +59,22 @@ const App: React.FC = () => {
     });
     // Sort alphabetically with Turkish locale support
     return Array.from(uniqueTopics).sort((a, b) => a.localeCompare(b, 'tr'));
+  }, [files]);
+
+  // Calculate High Priority topics specifically from the study plans
+  const highPriorityTopics = useMemo(() => {
+    const uniqueHighPriority = new Set<string>();
+    files.forEach(file => {
+      if (file.status === 'completed' && file.result?.studyPlan) {
+        file.result.studyPlan.forEach(item => {
+          // Check for 'Yüksek' which corresponds to Priority.HIGH
+          if (item.priority === Priority.HIGH) {
+            uniqueHighPriority.add(item.topic);
+          }
+        });
+      }
+    });
+    return Array.from(uniqueHighPriority).sort((a, b) => a.localeCompare(b, 'tr'));
   }, [files]);
 
   const handleFilesSelected = useCallback(async (selectedFiles: File[]) => {
@@ -125,6 +142,20 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDownloadReport = () => {
+    const htmlContent = generateHtmlReport(files, allTopics, highPriorityTopics);
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `calisma-raporu-${new Date().toISOString().slice(0, 10)}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
       {/* Navbar */}
@@ -164,90 +195,4 @@ const App: React.FC = () => {
         {/* Upload Section */}
         <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
           <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            Dosya Yükle
-          </h3>
-          <FileUpload onFilesSelected={handleFilesSelected} />
-        </section>
-
-        {/* Results Section */}
-        {files.length > 0 && (
-          <section className="space-y-6">
-             <div className="flex items-center justify-between">
-               <div className="flex items-baseline gap-3">
-                 <h3 className="text-xl font-bold text-slate-800">Analiz Sonuçları</h3>
-                 <span className="text-sm text-slate-500">{files.length} dosya</span>
-               </div>
-               {files.length > 0 && (
-                 <button onClick={clearAll} className="text-sm text-red-600 hover:text-red-800 hover:underline">
-                   Tümünü Temizle
-                 </button>
-               )}
-             </div>
-             
-             <div className="grid grid-cols-1 gap-6">
-                {files.map(fileEntry => (
-                  <AnalysisResultCard 
-                    key={fileEntry.id} 
-                    item={fileEntry} 
-                    onRemove={removeFile} 
-                  />
-                ))}
-             </div>
-
-             {/* AGGREGATED TOPICS SUMMARY */}
-             {allTopics.length > 0 && (
-               <div className="mt-12">
-                 <div className="bg-indigo-900 rounded-2xl shadow-xl p-8 text-white relative overflow-hidden">
-                    {/* Decorative Background Pattern */}
-                    <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-indigo-800 opacity-50 blur-3xl"></div>
-                    <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 rounded-full bg-indigo-600 opacity-30 blur-3xl"></div>
-
-                    <div className="relative z-10">
-                      <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                        Tüm Çalışma Konuları ({allTopics.length})
-                      </h3>
-                      
-                      <p className="text-indigo-200 mb-6 text-lg">
-                        Yüklediğiniz tüm dokümanlardan derlenen, çalışmanız gereken ana başlıkların tam listesi:
-                      </p>
-
-                      <div className="flex flex-wrap gap-3">
-                        {allTopics.map((topic, idx) => (
-                          <span 
-                            key={idx} 
-                            className="px-4 py-2 bg-indigo-800/80 backdrop-blur-sm border border-indigo-500/50 rounded-lg text-indigo-50 font-medium hover:bg-white hover:text-indigo-900 hover:border-white transition-all duration-200 shadow-sm cursor-default"
-                          >
-                            {topic}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                 </div>
-               </div>
-             )}
-          </section>
-        )}
-        
-        {files.length === 0 && (
-          <div className="text-center py-12 opacity-40">
-            <div className="inline-block p-4 bg-slate-200 rounded-full mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <p className="text-slate-500 text-lg">Henüz bir dosya yüklenmedi.</p>
-          </div>
-        )}
-
-      </main>
-    </div>
-  );
-};
-
-export default App;
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="
