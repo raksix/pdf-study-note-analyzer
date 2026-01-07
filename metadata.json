@@ -1,0 +1,5 @@
+{
+  "name": "PDF Çalışma Asistanı",
+  "description": "PDF dosyalarını analiz ederek konuları çıkaran ve kişiselleştirilmiş çalışma planı hazırlayan yapay zeka destekli asistan.",
+  "requestFramePermissions": []
+}
