@@ -10,6 +10,13 @@ export interface AnalysisResult {
   studyPlan: StudyItem[];
 }
 
+export interface RoadmapStep {
+  stepName: string; // e.g. "1. Hafta" or "Temel Seviye"
+  title: string;
+  description: string;
+  topics: string[];
+}
+
 export interface AnalyzedFile {
   id: string;
   // Metadata for persistence and display

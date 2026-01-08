@@ -1,4 +1,4 @@
-import { AnalyzedFile, Priority } from "../types";
+import { AnalyzedFile, Priority, RoadmapStep } from "../types";
 
 const getPriorityColor = (priority: string) => {
   switch (priority) {
@@ -15,7 +15,8 @@ const getPriorityColor = (priority: string) => {
 export const generateHtmlReport = (
   files: AnalyzedFile[], 
   allTopics: string[], 
-  highPriorityTopics: string[]
+  highPriorityTopics: string[],
+  roadmap: RoadmapStep[] = []
 ): string => {
   const date = new Date().toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
@@ -94,7 +95,50 @@ export const generateHtmlReport = (
     `;
   }).join('');
 
-  // 2. Generate High Priority HTML
+  // 2. Generate Roadmap HTML
+  let roadmapHtml = '';
+  if (roadmap.length > 0) {
+    const stepsHtml = roadmap.map(step => `
+      <div class="relative pl-10 mb-8 last:mb-0 break-inside-avoid">
+         <div class="absolute -left-[9px] top-1 w-5 h-5 rounded-full bg-white border-4 border-indigo-600"></div>
+         <div class="bg-slate-50 rounded-xl p-5 border border-slate-200">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+              <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-1 rounded border border-indigo-100 w-fit">
+                ${step.stepName}
+              </span>
+              <h4 class="text-lg font-bold text-slate-800">${step.title}</h4>
+            </div>
+            <p class="text-slate-600 mb-4 text-sm leading-relaxed">${step.description}</p>
+            <div>
+               <h5 class="text-xs font-semibold text-slate-500 uppercase mb-2">Konular</h5>
+               <div class="flex flex-wrap gap-2">
+                 ${step.topics.map(t => `<span class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-white border border-slate-300 text-slate-700">${t}</span>`).join('')}
+               </div>
+            </div>
+         </div>
+      </div>
+    `).join('');
+
+    roadmapHtml = `
+      <div class="bg-white rounded-2xl shadow-lg border border-indigo-100 p-8 mb-8 break-inside-avoid">
+         <div class="mb-8">
+            <h3 class="text-2xl font-bold text-slate-800 flex items-center gap-3">
+               <span class="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-600 text-white">
+                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                 </svg>
+               </span>
+               Kişiselleştirilmiş Yol Haritası
+            </h3>
+         </div>
+         <div class="relative border-l-2 border-indigo-200 ml-5 py-2">
+           ${stepsHtml}
+         </div>
+      </div>
+    `;
+  }
+
+  // 3. Generate High Priority HTML
   let highPriorityHtml = '';
   if (highPriorityTopics.length > 0) {
     const items = highPriorityTopics.map(topic => `
@@ -120,7 +164,7 @@ export const generateHtmlReport = (
     `;
   }
 
-  // 3. Generate All Topics HTML
+  // 4. Generate All Topics HTML
   let allTopicsHtml = '';
   if (allTopics.length > 0) {
     const tags = allTopics.map(topic => `
@@ -150,7 +194,7 @@ export const generateHtmlReport = (
     `;
   }
 
-  // 4. Combine into Full HTML
+  // 5. Combine into Full HTML
   return `
     <!DOCTYPE html>
     <html lang="tr">
@@ -186,6 +230,8 @@ export const generateHtmlReport = (
           <div class="space-y-8">
             ${cardsHtml}
             
+            ${roadmapHtml}
+
             ${highPriorityHtml}
             
             ${allTopicsHtml}
